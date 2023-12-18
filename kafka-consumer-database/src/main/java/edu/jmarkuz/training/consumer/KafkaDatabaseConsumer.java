@@ -14,7 +14,7 @@ public class KafkaDatabaseConsumer {
 
     private final WikimediaDataRepository repository;
 
-    @KafkaListener(topics = "wikimedia.recentchange", groupId = "myGroup")
+    @KafkaListener(topics = "${spring.kafka.topic.name}", groupId = "${spring.kafka.consumer.group-id}")
     public void consume(String eventMessage) {
         log.info("Event message received: -> {}", eventMessage);
 
