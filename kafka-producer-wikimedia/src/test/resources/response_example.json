@@ -1,0 +1,29 @@
+{
+  "$schema": "/mediawiki/recentchange/1.0.0",
+  "meta": {
+    "uri": "https://commons.wikimedia.org/wiki/Category:1570s_paintings_of_Annunciation",
+    "request_id": "12565587-de4f-4a2e-92ab-c15c3fe36621",
+    "id": "88ac346e-3f51-4665-b45f-369c7c5146bb",
+    "dt": "2023-12-17T10:29:29Z",
+    "domain": "commons.wikimedia.org",
+    "stream": "mediawiki.recentchange",
+    "topic": "codfw.mediawiki.recentchange",
+    "partition": 0,
+    "offset": 848281192
+  },
+  "id": 2381377162,
+  "type": "categorize",
+  "namespace": 14,
+  "title": "Category:1570s paintings of Annunciation",
+  "title_url": "https://commons.wikimedia.org/wiki/Category:1570s_paintings_of_Annunciation",
+  "comment": "[[:Category:Triptych of Annunciation by Marcellus Coffermans]] added to category",
+  "timestamp": 1702808969,
+  "user": "Mateus2019",
+  "bot": false,
+  "notify_url": "https://commons.wikimedia.org/w/index.php?diff=831492891&oldid=787106447&rcid=2381377162",
+  "server_url": "https://commons.wikimedia.org",
+  "server_name": "commons.wikimedia.org",
+  "server_script_path": "/w",
+  "wiki": "commonswiki",
+  "parsedcomment": "<a href=\"/wiki/Category:Triptych_of_Annunciation_by_Marcellus_Coffermans\" title=\"Category:Triptych of Annunciation by Marcellus Coffermans\">Category:Triptych of Annunciation by Marcellus Coffermans</a> added to category"
+}
