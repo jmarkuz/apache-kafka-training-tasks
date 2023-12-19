@@ -11,6 +11,7 @@
         <module name="kafka-producer-wikimedia" />
         <module name="kafka-consumer-database" />
         <module name="kafka-consumer-opensearch" />
+        <module name="kafka-streams-wikimedia" />
       </profile>
     </annotationProcessing>
   </component>
@@ -20,6 +21,7 @@
       <module name="kafka-consumer-opensearch" options="-parameters" />
       <module name="kafka-extended-api" options="-parameters" />
       <module name="kafka-producer-wikimedia" options="-parameters" />
+      <module name="kafka-streams-wikimedia" options="-parameters" />
     </option>
   </component>
 </project>
