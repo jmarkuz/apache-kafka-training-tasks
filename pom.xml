@@ -26,6 +26,7 @@
         <module>kafka-producer-wikimedia</module>
         <module>kafka-consumer-database</module>
         <module>kafka-consumer-opensearch</module>
+        <module>kafka-extended-api</module>
     </modules>
 
     <dependencies>
