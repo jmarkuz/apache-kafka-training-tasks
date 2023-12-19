@@ -7,8 +7,8 @@ services:
       plugins.security.disabled: "true" # disable https and logins
       compatibility.override_main_response_version: "true"
       ports:
-        9200:9200
-        9600:9600 # required for Performance Analyzer
+        - 9200:9200
+        - 9600:9600 # required for Performance Analyzer
 
     # console at http://localhost:5601/app/dev_tools#/console
   opensearch-dashboards:

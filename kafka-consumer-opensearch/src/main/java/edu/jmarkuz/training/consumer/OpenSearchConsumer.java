@@ -122,7 +122,7 @@ public class OpenSearchConsumer implements CommandLineRunner {
             }
 
         } catch (WakeupException e) {
-            log.info("Consumer is starting to shut down");
+            log.info("Consumer is starting to shut down", e);
         } catch (Exception e) {
             log.error("Unexpected exception in the consumer", e);
         } finally {
