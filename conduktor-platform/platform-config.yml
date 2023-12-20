@@ -14,8 +14,8 @@ admin: # Define the local admin for the initial setup (mandatory)
 
 auth: # Define a local user (optional)
   local-users:
-    - email: jmarkuz@conduktor.io
-      password: jmarkuz
+    - email: user@conduktor.io
+      password: user
 
 monitoring: # Monitoring settings (optional)
   cortex-url: http://conduktor-monitoring:9009/
