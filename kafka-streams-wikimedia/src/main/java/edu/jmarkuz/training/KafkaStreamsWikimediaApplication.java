@@ -18,6 +18,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @SpringBootApplication
@@ -66,6 +67,10 @@ public class KafkaStreamsWikimediaApplication implements CommandLineRunner {
     public void run(String... args) {
         try (KafkaStreams kafkaStreams = setupKafkaStreams()) {
             kafkaStreams.start();
+
+            TimeUnit.MINUTES.sleep(5);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 }
