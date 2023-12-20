@@ -1,6 +1,7 @@
 package edu.jmarkuz.training;
 
 import edu.jmarkuz.training.processor.BotCountStreamBuilder;
+import edu.jmarkuz.training.processor.EventCountTimeseriesBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -50,6 +51,9 @@ public class KafkaStreamsWikimediaApplication implements CommandLineRunner {
 
         var botCountStreamBuilder = new BotCountStreamBuilder(kStream);
         botCountStreamBuilder.setup();
+
+        var eventCountTimeseriesBuilder = new EventCountTimeseriesBuilder(kStream);
+        eventCountTimeseriesBuilder.setup();
 
         return builder.build();
     }
