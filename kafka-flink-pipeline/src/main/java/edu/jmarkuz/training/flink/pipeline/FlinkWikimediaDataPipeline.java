@@ -2,31 +2,41 @@ package edu.jmarkuz.training.flink.pipeline;
 
 import edu.jmarkuz.training.flink.connector.KafkaConsumer;
 import edu.jmarkuz.training.flink.connector.KafkaProducer;
-import edu.jmarkuz.training.model.WikimediaData;
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.stereotype.Component;
 
-@RequiredArgsConstructor
+@Component
+@NoArgsConstructor
+@AllArgsConstructor
+@PropertySource("classpath:/application.yaml")
 public class FlinkWikimediaDataPipeline {
 
-    private final String inputTopic;
-    private final String outputTopic;
-    private final String kafkaAddress;
-    private final String kafkaGroup;
+    @Value("${kafka.input.topic}")
+    private String inputTopic;
+    @Value("${kafka.output.topic}")
+    private String outputTopic;
+    @Value("${kafka.address}")
+    private String kafkaAddress;
+    @Value("${kafka.consumer.group}")
+    private String kafkaGroup;
 
-    public void botsVsUsersNamesToUpperCase() throws Exception {
+    public void run() throws Exception {
 
-        var flinkKafkaConsumer = KafkaConsumer.createWikimediaDataConsumer(inputTopic, kafkaAddress, kafkaGroup);
+        var flinkKafkaConsumer = KafkaConsumer.createWikimediaStringDataConsumer(inputTopic, kafkaAddress, kafkaGroup);
         flinkKafkaConsumer.setStartFromEarliest();
 
         var environment = StreamExecutionEnvironment.getExecutionEnvironment();
-        DataStream<WikimediaData> stringInputStream = environment.addSource(flinkKafkaConsumer);
+        DataStream<String> stringInputStream = environment.addSource(flinkKafkaConsumer);
 
-        var flinkKafkaProducer = KafkaProducer.createWikimediaDataProducer(outputTopic, kafkaAddress);
+        var flinkKafkaProducer = KafkaProducer.createWikimediaStringDataProducer(outputTopic, kafkaAddress);
 
         stringInputStream
-                .map(new ChangeNameMapper())
+                .map(new UserNameStringMapper())
                 .addSink(flinkKafkaProducer);
 
         environment.execute();

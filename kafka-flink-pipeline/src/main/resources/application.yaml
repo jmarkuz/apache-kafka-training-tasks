@@ -1,0 +1,8 @@
+kafka:
+  input:
+    topic: "wikimedia.recentchange"
+  output:
+    topic: "wikimedia.recentchange.flink.output"
+  address: "localhost:9092"
+  consumer:
+    group: "wikimedia_username_to_upper"
