@@ -1,0 +1,53 @@
+{
+  "id": [
+    {
+      "topic": "eqiad.mediawiki.recentchange",
+      "partition": 0,
+      "offset": -1
+    },
+    {
+      "topic": "codfw.mediawiki.recentchange",
+      "partition": 0,
+      "timestamp": 1708680223001
+    }
+  ],
+  "data": {
+    "$schema": "/mediawiki/recentchange/1.0.0",
+    "meta": {
+      "uri": "https://www.wikidata.org/wiki/Q112959709",
+      "request_id": "f3968a88-d709-4c80-8049-d06a416d3a58",
+      "id": "1228c77e-c371-4430-ab06-af313b8dc86c",
+      "dt": "2024-02-23T09:23:43Z",
+      "domain": "www.wikidata.org",
+      "stream": "mediawiki.recentchange",
+      "topic": "codfw.mediawiki.recentchange",
+      "partition": 0,
+      "offset": 1052628138
+    },
+    "id": 2147856405,
+    "type": "edit",
+    "namespace": 0,
+    "title": "Q112959709",
+    "title_url": "https://www.wikidata.org/wiki/Q112959709",
+    "comment": "/* wbcreateclaim-create:1| */ [[Property:P121]]: [[Q124639917]], #quickstatements; #temporary_batch_1708679337042",
+    "timestamp": 1708680223,
+    "user": "User",
+    "bot": false,
+    "notify_url": "https://www.wikidata.org/w/index.php?diff=2084606432&oldid=2084606421&rcid=2147856405",
+    "minor": false,
+    "patrolled": true,
+    "length": {
+      "old": 37070,
+      "new": 37491
+    },
+    "revision": {
+      "old": 2084606421,
+      "new": 2084606432
+    },
+    "server_url": "https://www.wikidata.org",
+    "server_name": "www.wikidata.org",
+    "server_script_path": "/w",
+    "wiki": "wikidatawiki",
+    "parsedcomment": "‎<span dir=\"auto\"><span class=\"autocomment\">Creata asserzione: </span></span> <a href=\"/wiki/Property:P121\" title=\"‎elemento operato‎ | ‎strumentazione, mezzo o servizio gestito dal soggetto‎\"><span class=\"wb-itemlink\"><span class=\"wb-itemlink-label\" lang=\"it\" dir=\"ltr\">elemento operato</span> <span class=\"wb-itemlink-id\">(P121)</span></span></a>: <a href=\"/wiki/Q124639917\" title=\"‎document delivery internazionale‎ | ‎servizio di fornitura documenti usufruibile internazionalmente‎\"><span class=\"wb-itemlink\"><span class=\"wb-itemlink-label\" lang=\"it\" dir=\"ltr\">document delivery internazionale</span> <span class=\"wb-itemlink-id\">(Q124639917)</span></span></a>, #quickstatements; #temporary_batch_1708679337042"
+  }
+}

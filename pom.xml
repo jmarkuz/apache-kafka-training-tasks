@@ -28,6 +28,7 @@
         <module>kafka-consumer-opensearch</module>
         <module>kafka-extended-api</module>
         <module>kafka-streams-wikimedia</module>
+        <module>kafka-flink-pipeline</module>
     </modules>
 
     <dependencies>
