@@ -1,0 +1,45 @@
+version: 2
+updates:
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "maven"
+    directory: "/kafka-consumer-database"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "maven"
+    directory: "/kafka-consumer-opensearch"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "maven"
+    directory: "/kafka-extended-api"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "maven"
+    directory: "/kafka-flink-pipeline"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "maven"
+    directory: "/kafka-producer-wikimedia"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "maven"
+    directory: "/kafka-streams-wikimedia"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "docker-compose"
+    directory: "/kafka-consumer-opensearch"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker-compose"
+    directory: "/conduktor-platform"
+    schedule:
+      interval: "weekly"
