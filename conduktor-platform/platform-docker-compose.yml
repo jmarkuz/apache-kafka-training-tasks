@@ -80,6 +80,6 @@ services:
   conduktor-monitoring:
     hostname: conduktor-monitoring
     container_name: conduktor-monitoring
-    image: conduktor/conduktor-platform-cortex:1.18.1
+    image: conduktor/conduktor-platform-cortex:1.25.1
     environment:
       CDK_CONSOLE-URL: "http://conduktor-console:8080"
