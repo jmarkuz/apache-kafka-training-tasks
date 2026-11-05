@@ -1,8 +1,102 @@
 # apache-kafka-training-tasks
-Project to accumulate all the training tasks on Apache Kafka with Spring Boot
 
-TBD:
-1. Core concept and API
-2. Kafka Extended API
-3. Kafka Stream Registry and REST Proxy
-4. Kafka Administration, Production setup and Security
+A project that collects hands-on training tasks on Apache Kafka (Spring Boot, Kafka Streams, Kafka Connect, Flink).
+The data source is the public **Wikimedia Recent Changes** SSE stream
+(`https://stream.wikimedia.org/v2/stream/recentchange`).
+
+## Architecture
+
+```mermaid
+flowchart LR
+    WM[("Wikimedia<br/>recentchange SSE")]
+
+    subgraph Producers["Producers"]
+        P["kafka-producer-wikimedia<br/>(Spring Boot + EventSource)"]
+        C["Kafka Connect<br/>WikimediaConnector<br/>(kafka-extended-api)"]
+    end
+
+    subgraph Kafka["Apache Kafka (localhost:9092)"]
+        T1[["wikimedia.recentchange"]]
+        T2[["wikimedia.recentchange.connect"]]
+        DLQ[["wikimedia.connect.dlq"]]
+        S1[["wikimedia.stats.bots"]]
+        S2[["wikimedia.stats.website"]]
+        S3[["wikimedia.stats.timeseries"]]
+        F1[["wikimedia.recentchange.flink.output"]]
+    end
+
+    subgraph Consumers["Consumers"]
+        DB["kafka-consumer-database<br/>(@KafkaListener + JPA)"]
+        OS["kafka-consumer-opensearch<br/>(KafkaConsumer + Bulk API)"]
+    end
+
+    subgraph Processing["Stream processing"]
+        KS["kafka-streams-wikimedia<br/>(Kafka Streams)"]
+        FL["kafka-flink-pipeline<br/>(Apache Flink)"]
+    end
+
+    PG[(PostgreSQL)]
+    OSD[(OpenSearch<br/>+ Dashboards)]
+    CON{{"Conduktor Platform<br/>(monitoring)"}}
+
+    WM --> P --> T1
+    WM --> C --> T2
+    C -. errors .-> DLQ
+
+    T1 --> DB --> PG
+    T1 --> OS --> OSD
+    T1 --> KS
+    KS --> S1
+    KS --> S2
+    KS --> S3
+    T1 --> FL --> F1
+
+    CON -.-> Kafka
+```
+
+## Modules and use cases
+
+| Module | Use case | Key concepts |
+|---|---|---|
+| [kafka-producer-wikimedia](kafka-producer-wikimedia) | Reads the Wikimedia stream via `EventSource` and publishes each event (JSON as `String`) to the `wikimedia.recentchange` topic | `KafkaTemplate`, `StringSerializer`, topic auto-creation via `NewTopic`/`TopicBuilder`, `EventHandler` |
+| [kafka-consumer-database](kafka-consumer-database) | Persists every event from the topic into PostgreSQL | `@KafkaListener`, consumer group `myGroup`, `auto-offset-reset: earliest`, Spring Data JPA |
+| [kafka-consumer-opensearch](kafka-consumer-opensearch) | Indexes events into OpenSearch (`wikimedia` index) for search and visualization | Plain `KafkaConsumer`, manual offset commits (`enable.auto.commit=false`), batch inserts via Bulk API, idempotency (`meta.id` as document id), graceful shutdown (`wakeup()`), `docker-compose` with OpenSearch and Dashboards |
+| [kafka-streams-wikimedia](kafka-streams-wikimedia) | Computes real-time statistics and writes them to separate topics | See below |
+| [kafka-extended-api](kafka-extended-api) | Kafka Connect (standalone) configuration with the Wikimedia source connector | `connect-standalone.properties`, `WikimediaConnector`, `JsonConverter`, Dead Letter Queue (`errors.tolerance=all`) |
+| [kafka-flink-pipeline](kafka-flink-pipeline) | Reads `wikimedia.recentchange`, transforms (maps) messages and writes them to `wikimedia.recentchange.flink.output` | `FlinkKafkaConsumer`/`FlinkKafkaProducer`, `MapFunction`, custom `WikimediaData` (de)serializers, `setStartFromEarliest()` |
+| [conduktor-platform](conduktor-platform) | Docker Compose for Conduktor Platform, a UI for browsing topics, messages and consumer groups | Cluster monitoring and administration |
+
+### Kafka Streams: statistics
+
+All three topologies read from `wikimedia.recentchange`:
+
+| Topology | What it counts | Window | Output topic | State store |
+|---|---|---|---|---|
+| `BotCountStreamBuilder` | Changes made by bots vs. non-bots | none | `wikimedia.stats.bots` | `bot-count-store` |
+| `WebsiteCountStreamBuilder` | Changes per website (`server_name`) | tumbling, 1 min | `wikimedia.stats.website` | `website-count-store` |
+| `EventCountTimeseriesBuilder` | Total event count (time series) | tumbling, 10 s | `wikimedia.stats.timeseries` | `event-count-store` |
+
+Operations used: `mapValues`, `selectKey`, `groupBy`/`groupByKey`, `windowedBy`, `count`, `toStream`, `to`.
+
+## Running
+
+Requirements: JDK, Maven, Kafka on `localhost:9092`.
+
+```bash
+# build all modules
+mvn clean install
+
+# supporting infrastructure
+docker compose -f kafka-consumer-opensearch/docker-compose.yaml up -d   # OpenSearch :9200, Dashboards :5601
+docker compose -f conduktor-platform/platform-docker-compose.yml up -d  # Conduktor Platform
+```
+
+`kafka-consumer-database` expects PostgreSQL on `localhost:5432` (database `wikimedia`).
+Each module runs as a separate Spring Boot application (`mvn spring-boot:run -pl <module>`).
+
+## Roadmap
+
+1. Core concept and API — ✅ producer, consumers (Spring + plain client)
+2. Kafka Extended API — 🚧 Kafka Connect, Kafka Streams, Flink (Connect configs are ready, `Main` is a stub)
+3. Kafka Stream Registry and REST Proxy — TBD
+4. Kafka Administration, Production setup and Security — TBD
