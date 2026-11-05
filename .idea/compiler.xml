@@ -8,6 +8,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="kafka-extended-api" />
+        <module name="kafka-flink-pipeline" />
         <module name="kafka-producer-wikimedia" />
         <module name="kafka-consumer-database" />
         <module name="kafka-consumer-opensearch" />
@@ -20,6 +21,7 @@
       <module name="kafka-consumer-database" options="-parameters" />
       <module name="kafka-consumer-opensearch" options="-parameters" />
       <module name="kafka-extended-api" options="-parameters" />
+      <module name="kafka-flink-pipeline" options="-parameters" />
       <module name="kafka-producer-wikimedia" options="-parameters" />
       <module name="kafka-streams-wikimedia" options="-parameters" />
     </option>
