@@ -12,7 +12,7 @@ services:
 
   # console at http://localhost:5601/app/dev_tools#/console
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:1.2.0
+    image: opensearchproject/opensearch-dashboards:3.9.0
     ports:
       - "5601:5601"
     environment:
