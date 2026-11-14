@@ -7,3 +7,9 @@ spring:
 
     topic:
       name: "wikimedia.recentchange"
+      # 3 partitions allow up to 3 consumers of one group to read in parallel
+      partitions: 3
+      # a single local broker can hold only 1 replica; use 3 on a multi-broker cluster (roadmap 4.2)
+      replicas: 1
+      # keep messages for 7 days (retention.bytes is left unlimited)
+      retention-ms: 604800000

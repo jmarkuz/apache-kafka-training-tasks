@@ -4,9 +4,12 @@ import com.launchdarkly.eventsource.MessageEvent;
 import edu.jmarkuz.training.handler.WikimediaChangesHandler;
 import edu.jmarkuz.training.producer.KafkaChangesProducer;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +64,20 @@ class KafkaProducerWikimediaApplicationTests {
     void createsWikimediaTopicOnStartup() throws Exception {
         try (AdminClient admin = AdminClient.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
             assertThat(admin.listTopics().names().get()).contains(topic);
+        }
+    }
+
+    @Test
+    void topicHasConfiguredPartitionsReplicasAndRetention() throws Exception {
+        try (AdminClient admin = AdminClient.create(Map.of("bootstrap.servers", KAFKA.getBootstrapServers()))) {
+            TopicDescription description = admin.describeTopics(List.of(topic)).allTopicNames().get().get(topic);
+            assertThat(description.partitions()).hasSize(3);
+            assertThat(description.partitions()).allSatisfy(partition -> assertThat(partition.replicas()).hasSize(1));
+
+            ConfigResource resource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
+            Config config = admin.describeConfigs(List.of(resource)).all().get().get(resource);
+            assertThat(config.get("retention.ms").value()).isEqualTo("604800000");
+            assertThat(config.get("cleanup.policy").value()).isEqualTo("delete");
         }
     }
 

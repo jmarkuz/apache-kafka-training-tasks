@@ -153,18 +153,19 @@ ones and, where possible, extends an existing module so the Wikimedia stream sta
 
 | Stage | Focus | Status |
 |---|---|---|
-| 1. Core concepts and API | Topics, producers, consumers, offsets, delivery guarantees | 🚧 basics done, reliability and tuning missing |
+| 1. Core concepts and API | Topics, producers, consumers, offsets, delivery guarantees | 🚧 topics (1.1) done, keys, reliability and tuning missing |
 | 2. Kafka Extended API | Kafka Connect, Schema Registry, Avro, REST Proxy | 🚧 Connect configs only, `Main` is a stub |
 | 3. Stream processing | Kafka Streams, exactly-once, joins, Flink | 🚧 stateful Streams and Flink map done |
 | 4. Administration, production, security | AdminClient, multi-broker cluster, TLS/SASL/ACLs, monitoring, testing | ⬜ not started |
 
 ### Stage 1. Core concepts and API
 
-**1.1 Topics, partitions and replication** 🟢 🚧 (`kafka-producer-wikimedia`)
-The topic is created with `TopicBuilder` defaults. Configure partitions, replication factor and retention explicitly, then
-inspect the result with `kafka-topics.sh --describe`.
+**1.1 Topics, partitions and replication** 🟢 ✅ (`kafka-producer-wikimedia`)
+The topic is declared explicitly: 3 partitions, replication factor 1 (single local broker), `retention.ms` of 7 days and
+`cleanup.policy=delete`, all configurable in `application.yaml`. See the [module README](kafka-producer-wikimedia/README.md)
+for the `kafka-topics --describe` output explained line by line.
 *You learn:* topic/partition/replica model, leaders and ISR, retention (`retention.ms`, `retention.bytes`), why partition count matters.
-*Done when:* `wikimedia.recentchange` has 3 partitions and a documented retention, and you can explain the `--describe` output.
+*Done:* `wikimedia.recentchange` has 3 partitions and a documented retention, verified by an integration test.
 
 **1.2 Message keys and partitioning** 🟢 ⬜ (`kafka-producer-wikimedia`)
 Send events with a key (for example `server_name` or `meta.domain`) and verify that the same key always lands in the same partition.
