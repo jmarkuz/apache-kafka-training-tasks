@@ -24,26 +24,50 @@ import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.common.xcontent.XContentType;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "opensearch.consumer.enabled", havingValue = "true", matchIfMissing = true)
 public class OpenSearchConsumer implements CommandLineRunner {
 
-    private static final String GROUP_ID = "consumer-opensearch-demo";
-    private static final String WIKIMEDIA_TOPIC = "wikimedia.recentchange";
-    private static final String CONNECTION_URL = "http://localhost:9200";
+    private final String bootstrapServers;
+    private final String connectionUrl;
+    private final String topic;
+    private final String groupId;
+    private final String autoOffsetReset;
+    private final AtomicBoolean running = new AtomicBoolean(true);
+
+    public OpenSearchConsumer(@Value("${kafka.bootstrap-servers:127.0.0.1:9092}") String bootstrapServers,
+                              @Value("${opensearch.url:http://localhost:9200}") String connectionUrl,
+                              @Value("${kafka.topic:wikimedia.recentchange}") String topic,
+                              @Value("${kafka.group-id:consumer-opensearch-demo}") String groupId,
+                              @Value("${kafka.auto-offset-reset:latest}") String autoOffsetReset) {
+        this.bootstrapServers = bootstrapServers;
+        this.connectionUrl = connectionUrl;
+        this.topic = topic;
+        this.groupId = groupId;
+        this.autoOffsetReset = autoOffsetReset;
+    }
+
+    /** Asks the polling loop to finish after the current batch. */
+    public void stop() {
+        running.set(false);
+    }
 
     @Override
     public void run(String... args) throws Exception {
         // first create an OpenSearch Client
-        RestHighLevelClient openSearchClient = createOpenSearchClient();
+        RestHighLevelClient openSearchClient = createOpenSearchClient(connectionUrl);
 
         // create our Kafka Client
         KafkaConsumer<String, String> consumer = createKafkaConsumer();
@@ -77,9 +101,9 @@ public class OpenSearchConsumer implements CommandLineRunner {
             }
 
             // we subscribe the consumer
-            consumer.subscribe(Collections.singleton(WIKIMEDIA_TOPIC));
+            consumer.subscribe(Collections.singleton(topic));
 
-            while (true) {
+            while (running.get()) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(3000));
 
                 int recordCount = records.count();
@@ -132,10 +156,10 @@ public class OpenSearchConsumer implements CommandLineRunner {
         }
     }
 
-    public static RestHighLevelClient createOpenSearchClient() {
+    public static RestHighLevelClient createOpenSearchClient(String connectionUrl) {
         // we build a URI from the connection string
         RestHighLevelClient restHighLevelClient;
-        URI connUri = URI.create(CONNECTION_URL);
+        URI connUri = URI.create(connectionUrl);
         // extract login information if it exists
         String userInfo = connUri.getUserInfo();
 
@@ -161,13 +185,13 @@ public class OpenSearchConsumer implements CommandLineRunner {
         return restHighLevelClient;
     }
 
-    private static KafkaConsumer<String, String> createKafkaConsumer() {
+    private KafkaConsumer<String, String> createKafkaConsumer() {
         Properties properties = new Properties();
-        properties.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
+        properties.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, GROUP_ID);
-        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
         properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
         return new KafkaConsumer<>(properties);

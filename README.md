@@ -83,8 +83,11 @@ Operations used: `mapValues`, `selectKey`, `groupBy`/`groupByKey`, `windowedBy`,
 Requirements: JDK, Maven, Kafka on `localhost:9092`.
 
 ```bash
-# build all modules
+# build all modules and run the tests (Docker must be running, see Testing)
 mvn clean install
+
+# or build without tests
+mvn clean install -DskipTests
 
 # supporting infrastructure
 docker compose -f kafka-consumer-opensearch/docker-compose.yaml up -d   # OpenSearch :9200, Dashboards :5601
@@ -122,15 +125,24 @@ Pull request policy:
 
 | Job | What it checks |
 |---|---|
-| **Build (JDK 17)** | `mvn verify -DskipTests`: compiles main and test sources and packages all modules |
+| **Build and test (JDK 17)** | `mvn verify`: compiles, runs the Testcontainers integration tests (Kafka, PostgreSQL, OpenSearch) and packages all modules |
 | **Validate docker-compose files** | `docker compose config` for `conduktor-platform` and `kafka-consumer-opensearch` |
 | **Dependency review** (PRs only) | Fails the PR if it introduces a dependency with a known vulnerability of high severity or above |
 
-Tests are **not executed in CI yet**: the current `*ApplicationTests` need running Kafka, PostgreSQL and internet access
-(the producer test streams from Wikimedia for 5 minutes). They will be enabled once they are replaced by Testcontainers
-tests (roadmap task X.1).
-
 To make the checks required, enable branch protection for `master` (Settings → Branches) and select the three jobs above as required status checks.
+
+## Testing
+
+Tests are integration tests that start real infrastructure in Docker with [Testcontainers](https://testcontainers.com), so **Docker must be running** to execute `mvn verify` (CI uses the Docker preinstalled on GitHub runners). No local Kafka, PostgreSQL or internet access to Wikimedia is needed.
+
+| Module | Test | What it verifies |
+|---|---|---|
+| `kafka-producer-wikimedia` | `KafkaProducerWikimediaApplicationTests` | The topic is created on startup and an event received from the stream handler is published to Kafka (the live Wikimedia stream is mocked) |
+| `kafka-consumer-database` | `KafkaConsumerDatabaseApplicationTests` | Messages published to Kafka are persisted to PostgreSQL by the `@KafkaListener` |
+| `kafka-consumer-opensearch` | `OpenSearchConsumerTest` | Events are indexed into OpenSearch using `meta.id` as the document id, so duplicates do not create extra documents |
+| `kafka-streams-wikimedia` | `KafkaStreamsWikimediaTopologyTest` | The real topology produces bot/non-bot counts, per-website counts and the event-count time series |
+
+`kafka-flink-pipeline` and `kafka-extended-api` have no tests yet. First runs are slower because the container images (for example OpenSearch 1.2.4) are pulled. Run a single module with `mvn -pl kafka-consumer-database test`.
 
 ## Roadmap
 
@@ -306,14 +318,14 @@ Reassign partitions after adding a broker, practice a rolling restart, and repli
 
 ### Cross-cutting tasks
 
-**X.1 Real integration tests** 🟡 ⬜
-The current `*ApplicationTests` only contain an empty `contextLoads()` and need a running Kafka/PostgreSQL. Replace them with
-Testcontainers (Kafka, PostgreSQL, OpenSearch) or `@EmbeddedKafka` tests.
+**X.1 Real integration tests** 🟡 ✅ (see [Testing](#testing))
+The empty `contextLoads()` tests were replaced with Testcontainers tests for the producer, both consumers and the Kafka Streams
+topology. Remaining: tests for `kafka-flink-pipeline`, and tests for consumer error paths (see 1.9).
 *You learn:* testing Kafka code reliably and repeatably.
 
 **X.2 CI pipeline** 🟢 🚧 (`.github/workflows`)
-Done: GitHub Actions build, docker-compose validation and dependency review on every PR (see [CI](#ci)). Remaining: run the tests
-once X.1 is finished and add a Kafka-based integration job.
+Done: GitHub Actions build with the Testcontainers tests, docker-compose validation and dependency review on every PR (see [CI](#ci)).
+Remaining: make the checks required via branch protection and add Flink tests.
 *You learn:* automating the safety net for dependency updates.
 
 **X.3 Capstone** 🔴 ⬜

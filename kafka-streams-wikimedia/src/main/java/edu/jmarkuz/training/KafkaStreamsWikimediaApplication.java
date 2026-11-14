@@ -32,7 +32,7 @@ public class KafkaStreamsWikimediaApplication implements CommandLineRunner {
     }
 
     private KafkaStreams setupKafkaStreams() {
-        final Topology appTopology = buildTopology();
+        final Topology appTopology = buildTopology(topicName);
 
         log.info("Topology: {}", appTopology.describe());
 
@@ -47,7 +47,7 @@ public class KafkaStreamsWikimediaApplication implements CommandLineRunner {
         return new KafkaStreams(appTopology, new StreamsConfig(properties));
     }
 
-    private Topology buildTopology() {
+    static Topology buildTopology(String topicName) {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, String> kStream = builder.stream(topicName);
 

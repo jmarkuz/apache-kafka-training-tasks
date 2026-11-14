@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   build:
-    name: Build (JDK 17)
+    name: Build and test (JDK 17)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -24,11 +24,10 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: maven
-      # Compiles main and test sources and packages every module.
-      # Tests are not executed yet: they need running Kafka/PostgreSQL/OpenSearch and the
-      # internet (see roadmap task X.1 - replace them with Testcontainers).
-      - name: Build all modules
-        run: mvn -B -ntp verify -DskipTests
+      # Compiles, runs the Testcontainers integration tests (Kafka, PostgreSQL, OpenSearch;
+      # Docker is preinstalled on ubuntu-latest) and packages every module.
+      - name: Build and test all modules
+        run: mvn -B -ntp verify
 
   validate-compose:
     name: Validate docker-compose files
