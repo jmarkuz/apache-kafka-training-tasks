@@ -11,9 +11,9 @@ spring:
       name: wikimedia.recentchange
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/wikimedia
-    username: postgres
-    password: postgres
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/wikimedia}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
   jpa:
     properties:
       hibernate:
