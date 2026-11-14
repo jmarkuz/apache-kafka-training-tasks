@@ -38,7 +38,7 @@ services:
       - zookeeper
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.3.0
+    image: confluentinc/cp-schema-registry:8.4.1
     hostname: schema-registry
     container_name: schema-registry
     ports:
