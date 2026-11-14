@@ -4,6 +4,10 @@ spring:
       bootstrap-servers: localhost:9092
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        # isolates the busiest websites on partition 0 (see WikimediaPartitioner)
+        partitioner.class: edu.jmarkuz.training.partitioner.WikimediaPartitioner
+        wikimedia.partitioner.hot-keys: "www.wikidata.org,commons.wikimedia.org"
 
     topic:
       name: "wikimedia.recentchange"

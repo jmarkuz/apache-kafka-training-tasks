@@ -58,7 +58,7 @@ flowchart LR
 
 | Module | Use case | Key concepts |
 |---|---|---|
-| [kafka-producer-wikimedia](kafka-producer-wikimedia) | Reads the Wikimedia stream via `EventSource` and publishes each event (JSON as `String`) to the `wikimedia.recentchange` topic | `KafkaTemplate`, `StringSerializer`, topic auto-creation via `NewTopic`/`TopicBuilder`, `EventHandler` |
+| [kafka-producer-wikimedia](kafka-producer-wikimedia) | Reads the Wikimedia stream via `EventSource` and publishes each event (JSON as `String`, keyed by website) to the `wikimedia.recentchange` topic | `KafkaTemplate`, `StringSerializer`, topic auto-creation via `NewTopic`/`TopicBuilder`, message keys, custom `Partitioner`, `EventHandler` |
 | [kafka-consumer-database](kafka-consumer-database) | Persists every event from the topic into PostgreSQL | `@KafkaListener`, consumer group `myGroup`, `auto-offset-reset: earliest`, Spring Data JPA |
 | [kafka-consumer-opensearch](kafka-consumer-opensearch) | Indexes events into OpenSearch (`wikimedia` index) for search and visualization | Plain `KafkaConsumer`, manual offset commits (`enable.auto.commit=false`), batch inserts via Bulk API, idempotency (`meta.id` as document id), graceful shutdown (`wakeup()`), `docker-compose` with OpenSearch and Dashboards |
 | [kafka-streams-wikimedia](kafka-streams-wikimedia) | Computes real-time statistics and writes them to separate topics | See below |
@@ -153,7 +153,7 @@ ones and, where possible, extends an existing module so the Wikimedia stream sta
 
 | Stage | Focus | Status |
 |---|---|---|
-| 1. Core concepts and API | Topics, producers, consumers, offsets, delivery guarantees | 🚧 topics (1.1) done, keys, reliability and tuning missing |
+| 1. Core concepts and API | Topics, producers, consumers, offsets, delivery guarantees | 🚧 topics (1.1) and keys (1.2) done, reliability and tuning missing |
 | 2. Kafka Extended API | Kafka Connect, Schema Registry, Avro, REST Proxy | 🚧 Connect configs only, `Main` is a stub |
 | 3. Stream processing | Kafka Streams, exactly-once, joins, Flink | 🚧 stateful Streams and Flink map done |
 | 4. Administration, production, security | AdminClient, multi-broker cluster, TLS/SASL/ACLs, monitoring, testing | ⬜ not started |
@@ -167,11 +167,11 @@ for the `kafka-topics --describe` output explained line by line.
 *You learn:* topic/partition/replica model, leaders and ISR, retention (`retention.ms`, `retention.bytes`), why partition count matters.
 *Done:* `wikimedia.recentchange` has 3 partitions and a documented retention, verified by an integration test.
 
-**1.2 Message keys and partitioning** 🟢 ⬜ (`kafka-producer-wikimedia`)
-Send events with a key (for example `server_name` or `meta.domain`) and verify that the same key always lands in the same partition.
-Add a custom `Partitioner`.
+**1.2 Message keys and partitioning** 🟢 ✅ (`kafka-producer-wikimedia`)
+Events are sent with `server_name` as the key, and a custom `WikimediaPartitioner` isolates the hot websites on partition 0.
+See the [module README](kafka-producer-wikimedia/README.md#message-keys-and-partitioning).
 *You learn:* default key hashing, per-key ordering guarantees, hot partitions, why changing the partition count breaks key placement.
-*Done when:* a test shows that events with one key are consumed in order from one partition.
+*Done:* a test shows that events with one key are consumed in order from one partition.
 
 **1.3 Producer reliability** 🟡 ⬜ (`kafka-producer-wikimedia`)
 Configure `acks=all`, `enable.idempotence=true`, `retries`, `delivery.timeout.ms` and `min.insync.replicas`. Use send callbacks

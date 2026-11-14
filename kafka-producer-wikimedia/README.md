@@ -62,3 +62,57 @@ Note: `KafkaAdmin` re-applies the partition count only; changing `retention-ms` 
 update it, use `kafka-configs` as above.
 
 The settings are verified against a real broker by `KafkaProducerWikimediaApplicationTests`.
+
+## Message keys and partitioning
+
+Every event is sent with the **website it belongs to (`server_name`, e.g. `en.wikipedia.org`) as the message key**
+(see `WikimediaChangesHandler.extractKey`). If the event cannot be parsed or has no `server_name`, it is sent without a key.
+
+Why the key matters:
+
+- Kafka picks the partition from the key: `partition = hash(key) mod number of partitions` (murmur2 hash in the default partitioner).
+  The same key therefore always lands in the same partition.
+- Ordering is guaranteed **only inside one partition**. Because all changes of one website share a partition, a consumer sees them
+  in the order they were sent. Across different keys (partitions) there is no ordering.
+- Without a key, messages are spread over partitions (sticky/round-robin), which balances load but gives no ordering per website.
+- If the partition count changes, `hash(key) mod n` changes too, so existing keys may move to another partition and per-key
+  ordering across the old and new data is lost. Choose the number of partitions up front for keyed topics.
+
+### Custom partitioner
+
+[`WikimediaPartitioner`](src/main/java/edu/jmarkuz/training/partitioner/WikimediaPartitioner.java) solves the **hot partition** problem:
+a few websites (`www.wikidata.org`, `commons.wikimedia.org`) produce far more changes than the rest, so with the default partitioner
+the partition they hash to is overloaded and shares its load with unrelated keys.
+
+- Keys listed in `wikimedia.partitioner.hot-keys` are **isolated on partition 0**.
+- All other keys are spread over partitions `1..n-1` with the same murmur2 hash, so a key still always maps to one partition
+  and per-key ordering is preserved.
+- Messages without a key are spread round-robin over partitions `1..n-1`; with a single partition everything goes to partition 0.
+
+It is enabled in `application.yaml`:
+
+```yaml
+spring.kafka.producer.properties:
+  partitioner.class: edu.jmarkuz.training.partitioner.WikimediaPartitioner
+  wikimedia.partitioner.hot-keys: "www.wikidata.org,commons.wikimedia.org"
+```
+
+Remove `partitioner.class` to go back to Kafka's default partitioner. The trade-off of this design: partition 0 can only be as
+fast as one consumer, and partitions `1..n-1` carry all the remaining keys, so it only helps if the hot keys really dominate the traffic.
+
+### Seeing it in practice
+
+Show key and partition of each message while the producer runs:
+
+```bash
+docker exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic wikimedia.recentchange \
+  --from-beginning --property print.key=true --property print.partition=true --property print.offset=true
+```
+
+Every `server_name` always shows the same partition number and growing offsets; `www.wikidata.org` and `commons.wikimedia.org`
+only appear on partition 0.
+
+Covered by tests: `WikimediaPartitionerTest` (unit), `WikimediaChangesHandlerKeyTest` (key extraction) and
+`KafkaProducerWikimediaApplicationTests` (on a real broker: events with one key are consumed from a single partition in the order
+they were sent, and hot keys are only on partition 0).
+
