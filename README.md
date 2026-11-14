@@ -118,7 +118,190 @@ Pull request policy:
 
 ## Roadmap
 
-1. Core concept and API — ✅ producer, consumers (Spring + plain client)
-2. Kafka Extended API — 🚧 Kafka Connect, Kafka Streams, Flink (Connect configs are ready, `Main` is a stub)
-3. Kafka Stream Registry and REST Proxy — TBD
-4. Kafka Administration, Production setup and Security — TBD
+The roadmap follows the four stages of the course and is split into incremental tasks. Each task builds on the previous
+ones and, where possible, extends an existing module so the Wikimedia stream stays the common data source.
+
+**Legend** — difficulty: 🟢 beginner · 🟡 intermediate · 🔴 advanced. Status: ✅ done · 🚧 partly done · ⬜ not started.
+
+| Stage | Focus | Status |
+|---|---|---|
+| 1. Core concepts and API | Topics, producers, consumers, offsets, delivery guarantees | 🚧 basics done, reliability and tuning missing |
+| 2. Kafka Extended API | Kafka Connect, Schema Registry, Avro, REST Proxy | 🚧 Connect configs only, `Main` is a stub |
+| 3. Stream processing | Kafka Streams, exactly-once, joins, Flink | 🚧 stateful Streams and Flink map done |
+| 4. Administration, production, security | AdminClient, multi-broker cluster, TLS/SASL/ACLs, monitoring, testing | ⬜ not started |
+
+### Stage 1. Core concepts and API
+
+**1.1 Topics, partitions and replication** 🟢 🚧 (`kafka-producer-wikimedia`)
+The topic is created with `TopicBuilder` defaults. Configure partitions, replication factor and retention explicitly, then
+inspect the result with `kafka-topics.sh --describe`.
+*You learn:* topic/partition/replica model, leaders and ISR, retention (`retention.ms`, `retention.bytes`), why partition count matters.
+*Done when:* `wikimedia.recentchange` has 3 partitions and a documented retention, and you can explain the `--describe` output.
+
+**1.2 Message keys and partitioning** 🟢 ⬜ (`kafka-producer-wikimedia`)
+Send events with a key (for example `server_name` or `meta.domain`) and verify that the same key always lands in the same partition.
+Add a custom `Partitioner`.
+*You learn:* default key hashing, per-key ordering guarantees, hot partitions, why changing the partition count breaks key placement.
+*Done when:* a test shows that events with one key are consumed in order from one partition.
+
+**1.3 Producer reliability** 🟡 ⬜ (`kafka-producer-wikimedia`)
+Configure `acks=all`, `enable.idempotence=true`, `retries`, `delivery.timeout.ms` and `min.insync.replicas`. Use send callbacks
+(`CompletableFuture` from `KafkaTemplate`) to log failures and metadata.
+*You learn:* delivery guarantees, duplicates and reordering on retries, how idempotence fixes them, trade-off between latency and durability.
+*Done when:* you can stop a broker (see 4.2) and show that no acknowledged message is lost.
+
+**1.4 Producer throughput tuning** 🟡 ⬜ (`kafka-producer-wikimedia`)
+Experiment with `linger.ms`, `batch.size` and `compression.type` (`snappy`, `lz4`, `zstd`). Compare results with `kafka-producer-perf-test.sh`.
+*You learn:* batching, compression, the latency/throughput trade-off, how to measure instead of guess.
+*Done when:* a short table in the module compares settings by throughput and latency.
+
+**1.5 Consumer groups and rebalancing** 🟢 🚧 (`kafka-consumer-database`)
+Run two or three instances of the same consumer, watch partitions being assigned, and check lag with `kafka-consumer-groups.sh`.
+Then try more consumers than partitions.
+*You learn:* group coordination, partition assignment, scaling limits (consumers ≤ partitions), lag as a health metric.
+*Done when:* you can predict which instance gets which partition and show lag growing and shrinking.
+
+**1.6 Offsets and delivery semantics** 🟡 🚧 (`kafka-consumer-opensearch`)
+The OpenSearch consumer already commits manually after a bulk insert (at-least-once). Add `seek`/`seekToBeginning` to replay
+data, compare `auto-offset-reset` values, and switch the database consumer to manual acknowledgment.
+*You learn:* at-most-once vs at-least-once vs exactly-once, `__consumer_offsets`, replaying history, committing before vs after processing.
+*Done when:* killing a consumer mid-batch leads to re-processing but no data loss, and you can explain why.
+
+**1.7 Idempotent consumers** 🟡 ⬜ (`kafka-consumer-database`)
+At-least-once delivery means duplicates. Add a unique constraint on `meta.id` in PostgreSQL (OpenSearch already uses it as the
+document id) and handle the duplicate-key case.
+*You learn:* idempotent processing as the practical answer to duplicates, choosing a business key.
+*Done when:* replaying the topic does not create duplicate rows.
+
+**1.8 Rebalance strategies** 🔴 ⬜ (`kafka-consumer-opensearch`)
+Use `CooperativeStickyAssignor`, static membership (`group.instance.id`) and a `ConsumerRebalanceListener` that commits offsets on revoke.
+*You learn:* eager vs incremental rebalancing, stop-the-world pauses, how to avoid them during rolling restarts.
+*Done when:* restarting one consumer does not pause the whole group.
+
+**1.9 Error handling, retries and dead-letter topic** 🟡 ⬜ (`kafka-consumer-database`)
+Handle a "poison pill" (invalid JSON) with `DefaultErrorHandler`, back-off and `@RetryableTopic` / `DeadLetterPublishingRecoverer`.
+*You learn:* retryable vs non-retryable errors, blocking vs non-blocking retries, DLT inspection and reprocessing.
+*Done when:* a bad message ends up in `wikimedia.recentchange.DLT` and the consumer keeps going.
+
+### Stage 2. Kafka Extended API
+
+**2.1 Kafka Connect source connector** 🟡 🚧 (`kafka-extended-api`)
+The standalone and connector configs exist. Make them work: fix the Windows paths, build or download the Wikimedia connector,
+run `connect-standalone` and see events in `wikimedia.recentchange.connect`. Replace the stub `Main` or remove it.
+*You learn:* Connect architecture (workers, connectors, tasks), converters, offsets stored by Connect, the Dead Letter Queue setting.
+*Done when:* the connector writes to the topic and failed records go to `wikimedia.connect.dlq`.
+
+**2.2 Kafka Connect sink connectors** 🟡 ⬜ (`kafka-extended-api`)
+Replace the hand-written PostgreSQL and OpenSearch consumers with JDBC and OpenSearch sink connectors. Add a Single Message
+Transform (for example `InsertField`, `ExtractField`).
+*You learn:* when to use Connect instead of custom code, SMTs, sink semantics and error tolerance.
+*Done when:* the same data reaches both stores with configuration only.
+
+**2.3 Distributed Connect** 🔴 ⬜ (`kafka-extended-api`)
+Run Connect in distributed mode (docker-compose) and manage connectors through the REST API; kill a worker and watch task rebalancing.
+*You learn:* standalone vs distributed, internal topics (`connect-configs/offsets/status`), scaling and fault tolerance.
+
+**2.4 Schema Registry and Avro** 🟡 ⬜ (new module, `conduktor-platform` already runs a registry)
+Define an Avro schema for a Wikimedia change event, register it, and use `KafkaAvroSerializer` / `KafkaAvroDeserializer`
+(the Flink module already has a typed `WikimediaData` model to start from).
+*You learn:* why raw JSON strings are fragile, schema IDs in the message, serializers and the registry flow.
+*Done when:* producer and consumer exchange typed records and the schema is visible in the registry (and in Conduktor).
+
+**2.5 Schema evolution and compatibility** 🔴 ⬜ (same module as 2.4)
+Add and remove fields in the schema under `BACKWARD`, `FORWARD` and `FULL` compatibility. See which changes the registry rejects
+and how old and new consumers behave.
+*You learn:* compatibility modes, safe vs breaking changes, upgrade order for producers and consumers.
+
+**2.6 Kafka REST Proxy** 🟢 ⬜ (`conduktor-platform` compose)
+Add REST Proxy to the compose file; produce and consume with `curl`, including a consumer instance and offsets over HTTP.
+*You learn:* HTTP access to Kafka, its limits (latency, statefulness), when it is useful (non-JVM clients, simple integrations).
+
+### Stage 3. Stream processing
+
+**3.1 Stateless Kafka Streams and topology tests** 🟡 🚧 (`kafka-streams-wikimedia`)
+Add `filter`, `flatMap` and `split`/`branch` (for example per-wiki or per-change-type topics). Cover every topology with
+`TopologyTestDriver` instead of a running cluster.
+*You learn:* KStream operations, topology description, fast deterministic tests of stream logic.
+*Done when:* the three existing builders (`Bot`, `Website`, `EventCount`) have unit tests.
+
+**3.2 Stateful operations and windows** 🟡 🚧 (`kafka-streams-wikimedia`)
+Already done: counts and tumbling windows. Add hopping and session windows, grace periods, and `suppress` for final results.
+Inspect state stores and changelog topics.
+*You learn:* KTable vs KStream, state stores, changelog topics, event time vs processing time, late data.
+
+**3.3 Joins and enrichment** 🔴 ⬜ (`kafka-streams-wikimedia`)
+Enrich events with reference data: `KStream`–`KTable` join (for example a table of known bots or wiki metadata) and a `GlobalKTable`.
+*You learn:* co-partitioning, join types, why a join may require repartitioning, table-stream duality.
+
+**3.4 Interactive queries** 🔴 ⬜ (`kafka-streams-wikimedia`)
+Expose a state store (`bot-count-store`, `website-count-store`) through a REST endpoint; handle several instances by finding the
+instance that owns a key.
+*You learn:* querying state without an external DB, `StreamsMetadata`, rebalancing effects on state.
+
+**3.5 Transactions and exactly-once** 🔴 ⬜ (`kafka-streams-wikimedia`, `kafka-producer-wikimedia`)
+Use a transactional producer (`transactional.id`), consumers with `isolation.level=read_committed`, and `processing.guarantee=exactly_once_v2` in Streams.
+*You learn:* what "exactly-once" really covers (inside Kafka), transaction coordinator, zombie fencing, the cost of EOS.
+*Done when:* a crash during processing never produces duplicate output counts.
+
+**3.6 Flink pipeline, step by step** 🟡 🚧 (`kafka-flink-pipeline`)
+The pipeline currently passes the string through (`UserNameStringMapper` is a stub) and uses the deprecated `FlinkKafkaConsumer`/`FlinkKafkaProducer`.
+(a) Implement the real transformation on typed `WikimediaData`; (b) migrate to `KafkaSource` / `KafkaSink`;
+(c) add keyed state, event-time windows and watermarks; (d) enable checkpointing and test recovery.
+*You learn:* Flink vs Kafka Streams, bounded/unbounded sources, watermarks, checkpoints and end-to-end guarantees.
+
+**3.7 (optional) ksqlDB** 🟡 ⬜
+Re-implement one of the Streams topologies in ksqlDB (for example the per-website counts) and compare the effort.
+*You learn:* declarative stream processing and when SQL is enough.
+
+### Stage 4. Administration, production setup and security
+
+**4.1 AdminClient** 🟡 ⬜ (`kafka-extended-api`, replacing the stub `Main`)
+Use `AdminClient` to create and describe topics, change configs, list consumer groups and calculate lag.
+*You learn:* the programmatic admin API, topic and group metadata, building your own tooling.
+
+**4.2 Multi-broker KRaft cluster and failover** 🔴 ⬜ (new docker-compose)
+Run three brokers in KRaft mode (no ZooKeeper; the current Conduktor compose uses ZooKeeper). Use replication factor 3 and
+`min.insync.replicas=2`; stop a broker and observe leader election, ISR changes and client behavior.
+*You learn:* replication in practice, controller quorum, failure scenarios, what `acks=all` protects.
+
+**4.3 Log compaction and retention** 🟡 ⬜
+Create a compacted topic (for example the latest state per page) and compare it with time-based retention.
+*You learn:* `cleanup.policy=compact`, tombstones, segments, when compaction fits (changelog, state) and when it does not.
+
+**4.4 Monitoring and alerting** 🔴 ⬜ (compose: Prometheus + Grafana)
+Export broker and client JMX metrics (JMX exporter or Micrometer), build a dashboard and alerts for consumer lag,
+under-replicated partitions and request latency. Conduktor is already available for browsing.
+*You learn:* which metrics matter in production and how to react to them.
+
+**4.5 Security: TLS, SASL and ACLs** 🔴 ⬜ (new docker-compose profile)
+Enable TLS encryption, SASL/SCRAM authentication and ACLs; give each module its own user with least privileges and update
+the module configs. Remove hardcoded dev credentials from compose files in the process.
+*You learn:* listeners, certificates, authentication vs authorization, ACL design, secrets handling.
+*Done when:* a client without credentials or without the right ACL is rejected.
+
+**4.6 Capacity planning and performance testing** 🔴 ⬜
+Estimate partition counts and disk size from message rate and retention; run `kafka-producer-perf-test.sh` and
+`kafka-consumer-perf-test.sh` against the cluster from 4.2.
+*You learn:* sizing, bottlenecks (disk, network, batching), partition count trade-offs.
+
+**4.7 Operations: reassignment, upgrades, mirroring** 🔴 ⬜
+Reassign partitions after adding a broker, practice a rolling restart, and replicate a topic to a second cluster with MirrorMaker 2.
+*You learn:* day-2 operations, multi-cluster and disaster-recovery patterns.
+
+### Cross-cutting tasks
+
+**X.1 Real integration tests** 🟡 ⬜
+The current `*ApplicationTests` only contain an empty `contextLoads()` and need a running Kafka/PostgreSQL. Replace them with
+Testcontainers (Kafka, PostgreSQL, OpenSearch) or `@EmbeddedKafka` tests.
+*You learn:* testing Kafka code reliably and repeatably.
+
+**X.2 CI pipeline** 🟢 ⬜ (`.github/workflows`)
+Add GitHub Actions to run `mvn verify` on every PR. Dependabot PRs then get real checks instead of manual verification.
+*You learn:* automating the safety net for dependency updates.
+
+**X.3 Capstone** 🔴 ⬜
+Combine the pieces into one scenario: Connect source → Avro + Schema Registry → Streams enrichment (exactly-once) → sinks,
+running on the secured multi-broker cluster with monitoring and an integration test.
+
+**Suggested order:** 1.1 → 1.9, then 2.1 → 2.6, then 3.1 → 3.6, then 4.1 → 4.7. X.1 and X.2 are best done early (alongside stage 1),
+and 4.2 is a good prerequisite to try the failure scenarios from 1.3 and 1.8.
