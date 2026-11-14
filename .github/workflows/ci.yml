@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (JDK 17)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      # Compiles main and test sources and packages every module.
+      # Tests are not executed yet: they need running Kafka/PostgreSQL/OpenSearch and the
+      # internet (see roadmap task X.1 - replace them with Testcontainers).
+      - name: Build all modules
+        run: mvn -B -ntp verify -DskipTests
+
+  validate-compose:
+    name: Validate docker-compose files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: conduktor-platform
+        run: docker compose -f conduktor-platform/platform-docker-compose.yml config --quiet
+      - name: kafka-consumer-opensearch
+        run: docker compose -f kafka-consumer-opensearch/docker-compose.yaml config --quiet
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

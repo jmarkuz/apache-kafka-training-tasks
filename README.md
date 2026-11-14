@@ -107,7 +107,7 @@ Pull request policy:
 - **Safe to merge**: patch/minor bumps whose build passes (`mvn test-compile`).
 - **Closed with `@dependabot ignore this major version`**: breaking upgrades that need a dedicated migration, for example Spring Boot 4.x, `okhttp-eventsource` 5.x/6.x and Confluent Platform 8.x (drops ZooKeeper).
 - **Upgrade together**: OpenSearch client and server (`opensearch-rest-high-level-client` and the `opensearch` / `opensearch-dashboards` images), and the Conduktor Platform and Cortex images.
-- There is no CI yet, so there are no automatic checks on PRs. Verify the build locally before merging.
+- Every PR runs the [CI workflow](.github/workflows/ci.yml) (see [CI](#ci)); merge only when it is green. GitHub Actions versions are also updated by Dependabot.
 
 ## Security
 
@@ -115,6 +115,22 @@ Pull request policy:
 - **Scanning**: resolved dependencies can be checked against [OSV](https://osv.dev) (for example with `osv-scanner`); GitHub Dependabot alerts are also available in the repository's Security tab.
 - **Known open issue**: `org.opensearch:opensearch:1.2.4` (GHSA-6g3j-p5g6-992f). Fixing it needs a coordinated OpenSearch client and server upgrade.
 - **Credentials**: `kafka-consumer-database` reads the database settings from `DB_URL`, `DB_USERNAME` and `DB_PASSWORD` (defaults are for local development only). The passwords in `conduktor-platform` (`change_me`, `admin`) are also local defaults, so do not expose that stack publicly.
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request and on pushes to `master`:
+
+| Job | What it checks |
+|---|---|
+| **Build (JDK 17)** | `mvn verify -DskipTests`: compiles main and test sources and packages all modules |
+| **Validate docker-compose files** | `docker compose config` for `conduktor-platform` and `kafka-consumer-opensearch` |
+| **Dependency review** (PRs only) | Fails the PR if it introduces a dependency with a known vulnerability of high severity or above |
+
+Tests are **not executed in CI yet**: the current `*ApplicationTests` need running Kafka, PostgreSQL and internet access
+(the producer test streams from Wikimedia for 5 minutes). They will be enabled once they are replaced by Testcontainers
+tests (roadmap task X.1).
+
+To make the checks required, enable branch protection for `master` (Settings → Branches) and select the three jobs above as required status checks.
 
 ## Roadmap
 
@@ -295,8 +311,9 @@ The current `*ApplicationTests` only contain an empty `contextLoads()` and need 
 Testcontainers (Kafka, PostgreSQL, OpenSearch) or `@EmbeddedKafka` tests.
 *You learn:* testing Kafka code reliably and repeatably.
 
-**X.2 CI pipeline** 🟢 ⬜ (`.github/workflows`)
-Add GitHub Actions to run `mvn verify` on every PR. Dependabot PRs then get real checks instead of manual verification.
+**X.2 CI pipeline** 🟢 🚧 (`.github/workflows`)
+Done: GitHub Actions build, docker-compose validation and dependency review on every PR (see [CI](#ci)). Remaining: run the tests
+once X.1 is finished and add a Kafka-based integration job.
 *You learn:* automating the safety net for dependency updates.
 
 **X.3 Capstone** 🔴 ⬜
